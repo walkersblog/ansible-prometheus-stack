@@ -1,0 +1,47 @@
+---
+message: 'Hello World from group_vars!'
+
+prometheus_version    : '2.29.2'
+node_exporter_version : '1.2.2'
+alertmanager_version  : '0.23.0'
+thanos_version        : '0.22.0'
+loki_version          : '2.3.0'
+
+
+prometheus_instances:
+  - '192.168.1.51'
+  - '192.168.1.52' 
+prometheus_http_port: '9090'
+
+alertmanager_cluster_peers: 
+  - '192.168.1.51'
+  - '192.168.1.52'
+alertmanager_http_port: '9093'
+
+node_exporter_targets:
+  - '192.168.1.51'
+  - '192.168.1.52' 
+node_exporter_port: '9100'
+
+thanos_instances:
+  - '192.168.1.51'
+  - '192.168.1.52' 
+
+thanos_store_http_port         : '10906'
+thanos_query_http_port         : '10904' 
+thanos_sidecar_http_port       : '10902'
+
+thanos_store_stores:
+  - 192.168.1.51:10905
+  - 192.168.1.52:10905
+
+thanos_store_sidecars:
+  - 192.168.1.51:10901
+  - 192.168.1.52:10901
+
+
+
+grafana_db_host     : '192.168.1.100:5432'
+grafana_db_name     : 'grafana_db'
+grafana_db_user     : 'grafana'
+grafana_db_password : 'changeme'

@@ -1,0 +1,82 @@
+---
+# Add a service user account to run Alertmanager
+- name: Add user alertmanager
+  user:
+    name: "{{ alertmanager_user }}"
+    shell: /sbin/nologin
+    comment: Service Account
+    uid: "{{ alertmanager_uid }}"
+
+# Download and extract Alertmanager
+- name: Unarchive Alertmanager
+  ansible.builtin.unarchive:
+    src: https://github.com/prometheus/alertmanager/releases/download/v{{ alertmanager_version }}/alertmanager-{{ alertmanager_version }}.linux-amd64.tar.gz
+    dest: /usr/local/bin
+    extra_opts:
+      - --strip=1
+      - --no-anchored
+      - 'alertmanager'
+    remote_src: true
+
+# Create Alertmanager config directory
+- name: Create a directory if it does not exist
+  ansible.builtin.file:
+    path: /etc/alertmanager
+    state: directory
+    owner: "{{ alertmanager_user }}"
+    group: "{{ alertmanager_user }}"
+    mode: '0755'
+
+# Template Alertmanager configuration
+- name: Add Alertmanager config
+  ansible.builtin.template:
+    src: alertmanager.yml.j2
+    dest: /etc/alertmanager/alertmanager.yml
+    owner: "{{ alertmanager_user }}"
+    group: "{{ alertmanager_user }}"
+    mode: '0644'
+
+# Template Systemd service
+- name: Add Alertmanager service
+  ansible.builtin.template:
+    src: alertmanager.service.j2
+    dest: /etc/systemd/system/alertmanager.service
+    owner: root
+    group: root
+    mode: '0644'
+
+# Firewall rules
+- name: Permit traffic alertmanager_cluster_peer_port
+  firewalld:
+    port: "{{ alertmanager_external_port }}/tcp" 
+    permanent: yes
+    state: enabled
+
+- name: Permit traffic alertmanager_cluster_peer_port
+  firewalld:
+    port: "{{ item }}" 
+    permanent: yes
+    state: enabled
+  loop:
+    - "{{ alertmanager_cluster_peer_port }}/tcp"
+    - "{{ alertmanager_cluster_peer_port }}/udp"
+  when: alertmanager_ha_cluster
+
+# Reload firewalld
+- name: Reload firewalld
+  ansible.builtin.systemd:
+    name: firewalld.service
+    state: reloaded
+    enabled: yes
+
+# Systemd reload
+- name: Force systemd to reread configs
+  ansible.builtin.systemd:
+    daemon_reload: yes
+
+# Start and enable Alertmanager
+- name: Start and enable alertmanager
+  ansible.builtin.systemd:
+    name: alertmanager.service
+    state: restarted
+    enabled: yes

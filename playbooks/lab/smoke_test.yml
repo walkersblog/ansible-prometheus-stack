@@ -1,0 +1,9 @@
+---
+- name: Smoke Test Playbook
+  hosts: monitoring_servers
+  remote_user: ansible
+  become: yes
+  roles:
+    - smoke_test
+
+

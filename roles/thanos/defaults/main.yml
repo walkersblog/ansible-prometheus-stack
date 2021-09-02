@@ -1,0 +1,30 @@
+thanos_version                    : '0.18.0'
+thanos_user                       : 'prometheus'
+thanos_uid                        : '2001'
+thanos_config_path                : '/etc/thanos'
+thanos_nfs_server                 : '192.168.1.100'
+thanos_nfs_storage_path           : '/home/shares/monitoring/thanos'
+
+thanos_query_http_port            : '10904' 
+thanos_query_grpc_port            : '10903' 
+
+thanos_sidecar_tsdb_path          : '/var/lib/prometheus'
+thanos_sidecar_prometheus_port    : '9090'
+thanos_sidecar_http_address       : '10902'
+thanos_sidecar_grpc_address       : '10901'
+
+thanos_store_data_dir             : '/var/lib/thanos'
+thanos_store_http_address         : '10906'
+thanos_store_grpc_address         : '10905'
+thanos_store_objstore_mount_point : '/mnt/thanos'
+thanos_store_objstore_config_file : '/etc/thanos/objectstore.yml'
+thanos_store_stores:
+  - 192.168.1.51:10905
+  - 192.168.1.52:10905
+thanos_store_sidecars:
+  - 192.168.1.51:10901
+  - 192.168.1.52:10901
+
+
+
+  

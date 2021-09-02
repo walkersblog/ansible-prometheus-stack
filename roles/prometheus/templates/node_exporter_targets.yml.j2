@@ -1,0 +1,8 @@
+---
+- labels:
+    service: node_exporter
+    env: staging
+  targets:
+{% for node in node_exporter_targets %}
+  - {{ node }}:{{ node_exporter_port }}
+{% endfor %}

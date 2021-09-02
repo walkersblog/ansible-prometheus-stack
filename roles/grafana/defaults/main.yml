@@ -1,0 +1,6 @@
+grafana_http_port   : '3000'
+grafana_db_type     : 'postgres'
+grafana_db_host     : '192.168.0.70:5432'
+grafana_db_name     : 'grafana_db'
+grafana_db_user     : 'grafana'
+grafana_db_password : 'changeme'

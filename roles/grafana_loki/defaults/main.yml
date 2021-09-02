@@ -1,0 +1,7 @@
+loki_version       : '2.3.0'
+loki_http_port     : '3100'
+promtail_version   : '2.1.0'
+promtail_http_port : '9080'
+
+loki_user          : 'loki'
+loki_user_uuid     : '2002'

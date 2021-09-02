@@ -1,0 +1,15 @@
+[Unit]
+Description=Promtail Service
+Wants=network-online.target
+After=network-online.target
+
+[Service]
+User={{ loki_user }}
+Group={{ loki_user }}
+Type=simple
+LimitNOFILE=65536
+ExecStart=/usr/local/bin/promtail-linux-amd64 \
+    --config.file /etc/loki/promtail-local-config.yml
+    
+[Install]
+WantedBy=multi-user.target

@@ -1,0 +1,133 @@
+---
+# Install required packages
+- name: Install required packages
+  dnf:
+    name: 
+     - tar
+     - nfs-utils
+    state: latest
+
+# Add a service user account to run Prometheus
+- name: Add user prometheus
+  user:
+    name: "{{ prometheus_user }}"
+    shell: /sbin/nologin
+    comment: Service Account
+    uid:  "{{ prometheus_uid }}"
+
+# Download and extract Prometheus
+- name: Unarchive Prometheus
+  ansible.builtin.unarchive:
+    src: https://github.com/prometheus/prometheus/releases/download/v{{ prometheus_version }}/prometheus-{{ prometheus_version }}.linux-amd64.tar.gz
+    dest: /usr/local/bin
+    extra_opts:
+      - --strip=1
+      - --no-anchored
+      - 'prometheus'
+      - 'promtool'
+    remote_src: true
+
+# Create Prometheus config directories
+- name: Create a directory if it does not exist
+  ansible.builtin.file:
+    path: "{{ item }}"
+    state: directory
+    owner: "{{ prometheus_user }}"
+    group: "{{ prometheus_user }}"
+    mode: '0755'
+  loop:
+    - /etc/prometheus
+    - /etc/prometheus/rules
+    - /etc/prometheus/http_targets
+    - /etc/prometheus/https_targets
+    - /etc/prometheus/alertmanagers
+    - /var/lib/prometheus/
+
+# Configurations Mounts
+- name: Mount NFS volumes
+  mount:
+    src: "{{ item.src }}"
+    path: "{{ item.path }}"
+    opts: rw,sync,hard,intr
+    state: mounted
+    fstype: nfs
+  with_items:
+  - { src: '{{ prometheus_nfs_server }}:{{ prometheus_nfs_http_targets_path }}', path: '/etc/prometheus/http_targets' }
+  - { src: '{{ prometheus_nfs_server }}:{{ prometheus_nfs_https_targets_path }}', path: '/etc/prometheus/https_targets' }
+  - { src: '{{ prometheus_nfs_server }}:{{ prometheus_nfs_rules_path }}', path: '/etc/prometheus/rules' }
+  - { src: '{{ prometheus_nfs_server }}:{{ prometheus_nfs_alertmanagers_path }}', path: '/etc/prometheus/alertmanagers' }
+
+# Template Prometheus configuration
+- name: Add Prometheus configuration
+  ansible.builtin.template:
+    src: prometheus.yml.j2
+    dest: /etc/prometheus/prometheus.yml
+    owner: "{{ prometheus_user }}"
+    group: "{{ prometheus_user }}"
+    mode: '0644'
+
+# Template default target files only if not already present
+- name: Add Prometheus targets
+  ansible.builtin.template:
+    src: "{{ item.template }}"
+    dest: "{{ item.dest }}"
+    owner: "{{ prometheus_user }}"
+    group: "{{ prometheus_user }}"
+    mode: '0644'
+    force: yes
+  with_items:
+  - { template: 'node_exporter_targets.yml.j2', dest: '/etc/prometheus/http_targets/node_exporter_targets.yml' }
+  - { template: 'prometheus_targets.yml.j2', dest: '/etc/prometheus/http_targets/prometheus_targets.yml' }
+  - { template: 'thanos_query_targets.yml.j2', dest: '/etc/prometheus/http_targets/thanos_query_targets.yml' }
+  - { template: 'thanos_sidecar_targets.yml.j2', dest: '/etc/prometheus/http_targets/thanos_sidecar_targets.yml' }
+  - { template: 'thanos_store_targets.yml.j2', dest: '/etc/prometheus/http_targets/thanos_store_targets.yml' }
+  - { template: 'alertmanagers.yml.j2', dest: '/etc/prometheus/alertmanagers/alertmanagers.yml' }
+
+# Copy default rules
+- name: Copy default rules
+  ansible.builtin.copy:
+    src: "{{ item.template }}"
+    dest: "{{ item.dest }}"
+    owner: "{{ prometheus_user }}"
+    group: "{{ prometheus_user }}"
+    mode: '0644'
+  with_items:
+  - { template: 'prometheus_default_node_rules.yml', dest: '/etc/prometheus/rules/prometheus_default_node_rules.yml' }
+  - { template: 'prometheus_default_rules.yml', dest: '/etc/prometheus/rules/prometheus_default_rules.yml' }
+
+# Template Systemd service
+- name: Add Prometheus service
+  ansible.builtin.template:
+    src: prometheus.service.j2
+    dest: /etc/systemd/system/prometheus.service
+    owner: root
+    group: root
+    mode: '0644'
+
+# Firewall Rules
+- name: Permit traffic ports
+  firewalld:
+    port: "{{ item }}" 
+    permanent: yes
+    state: enabled
+  loop:
+    - "{{ prometheus_http_port }}/tcp"
+
+# Reload firewalld
+- name: Reload firewalld
+  ansible.builtin.systemd:
+    name: firewalld.service
+    state: reloaded
+    enabled: yes
+
+# Systemd reload
+- name: Force systemd to reread configs
+  ansible.builtin.systemd:
+    daemon_reload: yes
+
+# Start and enable Prometheus
+- name: Start and enable prometheus
+  ansible.builtin.systemd:
+    name: prometheus.service
+    state: restarted
+    enabled: yes

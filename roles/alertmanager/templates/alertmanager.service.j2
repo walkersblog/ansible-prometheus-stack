@@ -1,0 +1,30 @@
+[Unit]
+Description=Prometheus Alert Manager
+Wants=network-online.target
+After=network-online.target
+
+[Service]
+User={{ alertmanager_user }}
+Group={{ alertmanager_user }}
+Type=simple
+LimitNOFILE=65536
+ExecStart=/usr/local/bin/alertmanager \
+{% if alertmanager_ha_cluster %}
+    --cluster.listen-address=0.0.0.0:{{ alertmanager_cluster_peer_port }} \
+{% for cluster_peer in alertmanager_cluster_peers %}
+{% if cluster_peer == ansible_default_ipv4.address %}
+{% else %}
+    --cluster.peer={{ cluster_peer }}:{{ alertmanager_cluster_peer_port }} \
+{% endif %}
+{% endfor %}
+    --config.file=/etc/alertmanager/alertmanager.yml \
+    --web.external-url={{ alertmanager_external_url }}:{{ alertmanager_external_port }} 
+{% else %}
+    --config.file=/etc/alertmanager/alertmanager.yml \
+    --web.external-url={{ alertmanager_external_url }}:{{ alertmanager_external_port }} 
+{% endif %}
+
+WorkingDirectory=/etc/alertmanager
+
+[Install]
+WantedBy=multi-user.target

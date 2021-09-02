@@ -1,0 +1,11 @@
+---
+- name: Deploy All
+  hosts: monitoring_servers
+  remote_user: ansible
+  become: yes
+  roles:
+    - prometheus
+    - node_exporter
+    - alertmanager
+    - thanos
+    - grafana

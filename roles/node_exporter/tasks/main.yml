@@ -1,0 +1,56 @@
+---
+# Add a service user account to run Prometheus
+- name: Add user node_exporter
+  user:
+    name: "{{ node_exporter_user }}"
+    shell: /sbin/nologin
+    comment: Service Account
+    uid: "{{ node_exporter_uuid }}"
+
+# Download and extract node_exporter 
+- name: Unarchive Node Exporter
+  ansible.builtin.unarchive:
+    src: https://github.com/prometheus/node_exporter/releases/download/v{{ node_exporter_version }}/node_exporter-{{ node_exporter_version }}.linux-amd64.tar.gz
+    dest: /usr/local/bin
+    extra_opts:
+      - --strip=1
+      - --no-anchored
+      - 'node_exporter'
+    remote_src: true
+
+# Template Systemd service
+- name: Add node_exporter service
+  ansible.builtin.template:
+    src: node_exporter.service.j2
+    dest: /etc/systemd/system/node_exporter.service
+    owner: root
+    group: root
+    mode: '0644'
+
+# Firewall Rules
+- name: Permit traffic ports
+  firewalld:
+    port: "{{ item }}" 
+    permanent: yes
+    state: enabled
+  loop:
+    - "{{ node_exporter_port }}/tcp"
+
+# Reload firewalld
+- name: Reload firewalld
+  ansible.builtin.systemd:
+    name: firewalld.service
+    state: reloaded
+    enabled: yes
+
+# Systemd reload
+- name: Force systemd to reread configs
+  ansible.builtin.systemd:
+    daemon_reload: yes
+
+# Start and enable node_exporter
+- name: Start and enable node_exporter
+  ansible.builtin.systemd:
+    name: node_exporter.service
+    state: restarted
+    enabled: yes

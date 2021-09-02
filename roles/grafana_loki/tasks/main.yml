@@ -1,0 +1,130 @@
+---
+# Add a service user account to run, promtail needs systemd-journal group.
+- name: Add user 
+  user:
+    name: "{{ loki_user }}"
+    shell: /sbin/nologin
+    comment: Service Account
+    groups: systemd-journal
+    uid: "{{ loki_user_uuid }}"
+
+# Install required packages
+- name: Install required packages
+  dnf:
+    name: 
+     - unzip
+    state: latest
+
+# Download and extract Loki
+- name: Unarchive Loki
+  ansible.builtin.unarchive:
+    src: https://github.com/grafana/loki/releases/download/v{{ loki_version }}/loki-linux-amd64.zip
+    dest: /usr/local/bin
+    remote_src: true
+
+# Download and extract Promtool
+- name: Unarchive Promtool
+  ansible.builtin.unarchive:
+    src: https://github.com/grafana/loki/releases/download/v{{ promtail_version }}/promtail-linux-amd64.zip
+    dest: /usr/local/bin
+    remote_src: true
+
+# Create Loki config directories
+- name: Create a directory if it does not exist
+  ansible.builtin.file:
+    path: "{{ item }}"
+    state: directory
+    owner: "{{ loki_user }}"
+    group: "{{ loki_user }}"
+    mode: '0755'
+  loop:
+    - /etc/loki
+
+# wget https://raw.githubusercontent.com/grafana/loki/master/cmd/promtail/promtail-local-config.yaml
+# wget https://raw.githubusercontent.com/grafana/loki/af6e8cb6c9a02be44a978c4933fb17778cb401b7/cmd/loki/loki-local-config.yaml
+
+# Template Loki configuration
+- name: Add Loki configuration
+  ansible.builtin.template:
+    src: loki-local-config.yml.j2
+    dest: /etc/loki/loki-local-config.yml
+    owner: "{{ loki_user }}"
+    group: "{{ loki_user }}"
+    mode: '0644'
+
+# Template Promtail configuration
+- name: Add Promtail configuration
+  ansible.builtin.template:
+    src: promtail-local-config.yml.j2
+    dest: /etc/loki/promtail-local-config.yml
+    owner: "{{ loki_user }}"
+    group: "{{ loki_user }}"
+    mode: '0644'
+
+# Check permissions /tmp/positions.yaml
+- name: ensure file exists with correct permissions
+  copy:
+    content: ""
+    dest: /tmp/positions.yaml
+    force: no
+    group: "{{ loki_user }}"
+    owner: "{{ loki_user }}"
+    mode: 0600
+
+# Firewall Rules
+- name: Permit traffic ports
+  firewalld:
+    port: "{{ item }}" 
+    permanent: yes
+    state: enabled
+  loop:
+    - "{{ loki_http_port }}/tcp"
+    - "{{ promtail_http_port }}/tcp"
+
+# Reload firewalld
+- name: Reload firewalld
+  ansible.builtin.systemd:
+    name: firewalld.service
+    state: reloaded
+    enabled: yes
+
+# Systemd
+# nohup ./loki-linux-amd64 -config.file=loki-local-config.yaml &> loki.out &
+# nohup ./promtail-linux-amd64 -config.file=promtail-local-config.yaml &> promtail &
+
+# Template Systemd service
+- name: Add Loki service
+  ansible.builtin.template:
+    src: loki.service.j2
+    dest: /etc/systemd/system/loki.service
+    owner: root
+    group: root
+    mode: '0644'
+
+# Template Systemd service
+- name: Add Promtail service
+  ansible.builtin.template:
+    src: promtail.service.j2
+    dest: /etc/systemd/system/promtail.service
+    owner: root
+    group: root
+    mode: '0644'
+
+# Systemd reload
+- name: Force systemd to reread configs
+  ansible.builtin.systemd:
+    daemon_reload: yes
+
+# Start and enable Loki
+- name: Start and enable Loki
+  ansible.builtin.systemd:
+    name: loki.service
+    state: restarted
+    enabled: yes
+
+# Start and enable Promtail
+- name: Start and enable Loki
+  ansible.builtin.systemd:
+    name: promtail.service
+    state: restarted
+    enabled: yes

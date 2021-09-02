@@ -1,0 +1,22 @@
+[Unit]
+Description=Prometheus Service
+Wants=network-online.target
+After=network-online.target
+
+[Service]
+User={{ prometheus_user }}
+Group={{ prometheus_user }}
+Type=simple
+LimitNOFILE=65536
+ExecStart=/usr/local/bin/prometheus \
+    --config.file /etc/prometheus/prometheus.yml \
+    --storage.tsdb.path /var/lib/prometheus/ \
+    --web.console.templates=/etc/prometheus/consoles \
+    --web.console.libraries=/etc/prometheus/console_libraries \
+    --storage.tsdb.max-block-duration={{ prometheus_max_block_duration }} \
+    --storage.tsdb.min-block-duration={{ prometheus_min_block_duration }} \
+    --web.enable-lifecycle \
+    --web.listen-address=:{{ prometheus_http_port }}
+
+[Install]
+WantedBy=multi-user.target

@@ -1,0 +1,19 @@
+global:
+  smtp_smarthost: 'smtp.gmail.com:587'
+  smtp_from: 'AlertManager <mailer@lab.com>'
+  smtp_require_tls: true
+  smtp_hello: 'alertmanager'
+  smtp_auth_username: '{{ lookup('env', 'ALERTMANAGER_SMTP_USERNAME') }}'
+  smtp_auth_password: '{{ lookup('env', 'ALERTMANAGER_SMTP_PASSWORD') }}'
+
+route:
+  group_by: ['job', 'alert']
+  group_wait: 30s
+  group_interval: 5m
+  repeat_interval: 3h
+  receiver: staging
+
+receivers:
+  - name: 'staging'
+    email_configs:
+      - to: '{{ lookup('env', 'ALERTMANAGER_SEND_TO_EMAIL_ADDRESS') }}'

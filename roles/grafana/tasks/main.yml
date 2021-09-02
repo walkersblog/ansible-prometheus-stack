@@ -1,0 +1,57 @@
+---
+# Add Grafana repo
+- name: Add repository 
+  yum_repository:
+    name: grafana
+    description: Grafana repository
+    file: grafana
+    baseurl: https://packages.grafana.com/oss/rpm
+    gpgcheck: yes
+    gpgkey: https://packages.grafana.com/gpg.key
+    repo_gpgcheck: yes
+    sslverify: yes
+    sslcacert: /etc/pki/tls/certs/ca-bundle.crt
+
+# Install required packages
+- name: Install required packages
+  dnf:
+    name: 
+     - grafana
+    state: latest
+
+# Template Grafana configuration
+- name: Add Grafana configuration
+  ansible.builtin.template:
+    src: grafana.ini.j2
+    dest: /etc/grafana/grafana.ini
+    owner: root
+    group: grafana
+    mode: '0640'
+
+# Firewall Rules
+- name: Permit traffic ports
+  firewalld:
+    port: "{{ item }}" 
+    permanent: yes
+    state: enabled
+  loop:
+    - "{{ grafana_http_port }}/tcp"
+
+# Reload firewalld
+- name: Reload firewalld
+  ansible.builtin.systemd:
+    name: firewalld.service
+    state: reloaded
+    enabled: yes
+
+# Systemd reload
+- name: Force systemd to reread configs
+  ansible.builtin.systemd:
+    daemon_reload: yes
+
+# Start and enable Grafana
+- name: Start and enable grafana
+  ansible.builtin.systemd:
+    name: grafana-server.service
+    state: restarted
+    enabled: yes

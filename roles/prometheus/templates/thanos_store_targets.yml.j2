@@ -1,0 +1,9 @@
+---
+- labels:
+    service: thanos
+    env: staging
+    thanos: store
+  targets:
+{% for instance in thanos_instances %}
+  - {{ instance }}:{{ thanos_store_http_port }}
+{% endfor %}

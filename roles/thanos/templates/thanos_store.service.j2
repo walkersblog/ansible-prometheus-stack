@@ -1,0 +1,19 @@
+[Unit]
+Description=Thanos Store
+Wants=network-online.target
+After=network-online.target
+
+[Service]
+User=prometheus
+Group=prometheus
+Type=simple
+LimitNOFILE=65536
+ExecStart=/usr/local/bin/thanos store \
+    --objstore.config-file={{ thanos_store_objstore_config_file }} \
+    --http-address=0.0.0.0:{{ thanos_store_http_address }} \
+    --grpc-address=0.0.0.0:{{ thanos_store_grpc_address }} \
+    --data-dir={{ thanos_store_data_dir }} \
+    --log.level=debug
+
+[Install]
+WantedBy=multi-user.target

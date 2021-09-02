@@ -1,0 +1,8 @@
+---
+- labels:
+    service: prometheus
+    env: staging
+  targets:
+{% for instance in prometheus_instances %}
+  - {{ instance }}:{{ prometheus_http_port }}
+{% endfor %}

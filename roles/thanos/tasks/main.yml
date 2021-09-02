@@ -1,0 +1,116 @@
+---
+# Add a service user account to run Thanos
+- name: Add user thanos
+  user:
+    name: "{{ thanos_user }}"
+    shell: /sbin/nologin
+    comment: Service Account
+    uid: "{{ thanos_uid }}"
+
+# Download and extract Thanos
+- name: Unarchive Thanos
+  ansible.builtin.unarchive:
+    src: https://github.com/thanos-io/thanos/releases/download/v{{ thanos_version }}/thanos-{{ thanos_version }}.linux-amd64.tar.gz
+    dest: /usr/local/bin
+    extra_opts:
+      - --strip=1
+      - --no-anchored
+      - 'thanos'
+    remote_src: true
+
+# Create Thanos directories
+- name: Create a directory if it does not exist
+  ansible.builtin.file:
+    path: "{{ item }}"
+    state: directory
+    owner: "{{ thanos_user }}"
+    group: "{{ thanos_user }}"
+    mode: '0755'
+  loop:
+    - "{{ thanos_config_path }}"
+    - "{{ thanos_store_data_dir }}"
+    - "{{ thanos_store_objstore_mount_point }}"
+
+# Configurations Mounts
+- name: Mount NFS volumes
+  mount:
+    src: "{{ item.src }}"
+    path: "{{ item.path }}"
+    opts: rw,sync,hard,intr
+    state: mounted
+    fstype: nfs
+  with_items:
+  - { src: '{{ thanos_nfs_server }}:{{ thanos_nfs_storage_path }}', path: '/mnt/thanos' }
+
+# Add Thanos Object Store configuration file
+- name: Add Thanos Object Store configuration file
+  ansible.builtin.template:
+    src: file_system.yml.j2
+    dest: "{{ thanos_store_objstore_config_file }}"
+    owner: root
+    group: root
+    mode: '0644'
+
+# Template Thanos Query Systemd service
+- name: Add Thanos Query service
+  ansible.builtin.template:
+    src: thanos_query.service.j2
+    dest: /etc/systemd/system/thanos_query.service
+    owner: root
+    group: root
+    mode: '0644'
+
+# Template Thanos Sidecar Systemd service
+- name: Add Thanos Sidecar service
+  ansible.builtin.template:
+    src: thanos_sidecar.service.j2
+    dest: /etc/systemd/system/thanos_sidecar.service
+    owner: root
+    group: root
+    mode: '0644'
+
+# Template Thanos Store Systemd service
+- name: Add Thanos Store service
+  ansible.builtin.template:
+    src: thanos_store.service.j2
+    dest: /etc/systemd/system/thanos_store.service
+    owner: root
+    group: root
+    mode: '0644'
+
+# Firewall Rules
+- name: Permit traffic ports
+  firewalld:
+    port: "{{ item }}" 
+    permanent: yes
+    state: enabled
+  loop:
+    - "{{ thanos_query_http_port }}/tcp"
+    - "{{ thanos_query_grpc_port }}/tcp"
+    - "{{ thanos_sidecar_http_address }}/tcp"
+    - "{{ thanos_sidecar_grpc_address }}/tcp"
+    - "{{ thanos_store_http_address }}/tcp"
+    - "{{ thanos_store_grpc_address }}/tcp"
+
+# Reload firewalld
+- name: Reload firewalld
+  ansible.builtin.systemd:
+    name: firewalld.service
+    state: reloaded
+    enabled: yes
+
+# Systemd reload
+- name: Force systemd to reread configs
+  ansible.builtin.systemd:
+    daemon_reload: yes
+
+# Start and enable Prometheus
+- name: Start and enable prometheus
+  ansible.builtin.systemd:
+    name: "{{ item }}"
+    state: restarted
+    enabled: yes
+  loop:
+    - thanos_store.service
+    - thanos_sidecar.service
+    - thanos_query.service

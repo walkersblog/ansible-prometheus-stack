@@ -1,0 +1,5 @@
+---
+- name: Smoke test
+  shell: echo "{{ message }}" > /tmp/smoke_test.yml
+
+

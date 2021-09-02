@@ -1,0 +1,5 @@
+---
+- targets:
+{% for peer in alertmanager_cluster_peers %}
+  - {{ peer }}:{{ alertmanager_http_port }}
+{% endfor %}

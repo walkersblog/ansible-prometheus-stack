@@ -1,0 +1,10 @@
+alertmanager_version                : '0.21.0'
+alertmanager_user                   : 'alertmanager'
+alertmanager_uid                    : '1003'
+alertmanager_external_url           : 'http://{{ ansible_default_ipv4.address }}' 
+alertmanager_external_port          : '9093'
+alertmanager_ha_cluster             : true
+alertmanager_cluster_peer_port      : '9004'
+alertmanager_cluster_peers: 
+  - '192.168.0.81'
+  - '192.168.0.82'
